@@ -2,6 +2,10 @@ package edu.uw.piano;
 
 import android.app.Activity;
 import android.graphics.Rect;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.SoundPool;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.view.MotionEventCompat;
 import android.util.Log;
@@ -13,6 +17,13 @@ import java.util.HashMap;
 public class MainActivity extends Activity {
 
     private static final String TAG = "Piano";
+
+    private SoundPool soundPool;
+    public static final int MAX_STREAMS = 5;
+
+    private int[] soundIDs;
+    private int[] rawIDs;
+    private boolean[] loadedSuccessfully;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,8 +37,54 @@ public class MainActivity extends Activity {
     @SuppressWarnings("deprecation")
     private void initializeSoundPool(){
         //TODO: Create the SoundPool
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            // api >= 21
+            SoundPool.Builder builder = new SoundPool.Builder()
+                    .setMaxStreams(MAX_STREAMS)
+                    .setAudioAttributes(
+                            new AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .build()
+                    );
+
+            soundPool = builder.build();
+        } else {
+            // api < 21
+            soundPool = new SoundPool(MAX_STREAMS, AudioManager.STREAM_MUSIC, 0);
+
+        }
+
+        soundIDs = new int[12];
+        rawIDs = new int[]{R.raw.piano_040, R.raw.piano_041, R.raw.piano_042, R.raw.piano_043,
+                R.raw.piano_044, R.raw.piano_045, R.raw.piano_046, R.raw.piano_047,
+                R.raw.piano_048, R.raw.piano_049, R.raw.piano_050, R.raw.piano_051, };
+        loadedSuccessfully = new boolean[12];
+
+        // Assign onLoadComplete listener
+        soundPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+                for (int i = 0; i < soundIDs.length; i++) {
+                    if (sampleId == soundIDs[i]) {
+                        if (status == 0) {
+                            Log.v(TAG, "ID: " + sampleId + " loaded successfully");
+                            loadedSuccessfully[i] = true;
+                        } else {
+                            Log.v(TAG, "Loaded unsuccessfully - status = " + status);
+                        }
+                        break;
+                    }
+                }
+            }
+        });
 
         //TODO: Load the sounds
+
+        for (int i = 0; i < soundIDs.length; i++) {
+            Log.v(TAG, "Loading index " + i);
+            soundIDs[i] = soundPool.load(this, rawIDs[i], 1);
+        }
     }
 
 
@@ -54,6 +111,10 @@ public class MainActivity extends Activity {
         Log.v(TAG, "Tapped key: "+KEY_NAMES[key]);
 
         //TODO: Play sound depending on key pressed!
+        if (loadedSuccessfully[key]) {
+            Log.v(TAG, "Playing sound");
+            soundPool.play(soundIDs[key], 0.5f, 0.5f, 1, 0, 1.0f);
+        }
 
     }
 
